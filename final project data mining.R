@@ -1,14 +1,20 @@
+#git status
 # Installing packages
 install.packages("readr")
 library(readr)
-install.packages("corrplot")
+install.packages("corrplot")x
 library(corrplot)
+library(ggplot2)
 
 # Reading the data set into R
 property_sales_data <- read_csv("2002-2018-property-sales-data.csv")
 
 # Check for missing values
 colSums(is.na(property_sales_data))
+
+# Remove rows where Sale_price is zero
+property_sales_data <- property_sales_data[property_sales_data$Sale_price > 0, ]
+
 
 ## basic data visualizations
 # Create histogram with adjusted x-axis limits
@@ -65,5 +71,36 @@ summary(data_normalized)       # Normalized data
 # data_normalized can be used for PCA
 
 
+
+
+
+# Performing PCA
+# Perform PCA on normalized data
+pca_result <- prcomp(data_normalized, center = TRUE, scale. = TRUE)
+
+# View explained variance for each principal component
+summary(pca_result)
+
+# Visualizing Variance Explained
+# Calculate proportion of variance explained by each PC
+var_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+cumulative_var <- cumsum(var_explained)
+
+# Scree plot for variance explained
+ggplot(data.frame(PC = 1:length(var_explained), Variance = var_explained, Cumulative = cumulative_var),
+       aes(x = PC)) +
+  geom_bar(aes(y = Variance), stat = "identity", fill = "skyblue", alpha = 0.7) +
+  geom_line(aes(y = Cumulative), color = "blue") +
+  geom_point(aes(y = Cumulative), color = "blue") +
+  labs(title = "Variance Explained by Principal Components",
+       x = "Principal Components",
+       y = "Proportion of Variance") +
+  theme_minimal()
+
+# Selecting Top Principal Components
+# Retain the top 8 principal components (covering ~82.27% of the variance)
+reduced_data <- pca_result$x[, 1:8]  # First 8 PCs
+
+# The reduced_data can now be used for further analysis (e.g., clustering, modeling)
 
 

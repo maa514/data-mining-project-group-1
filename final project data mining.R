@@ -1,7 +1,7 @@
 # Installing packages
 install.packages("readr")
 library(readr)
-install.packages("corrplot")x
+install.packages("corrplot")
 library(corrplot)
 library(ggplot2)
 

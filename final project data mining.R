@@ -129,6 +129,7 @@ reduced_data <- pca_result$x[, 1:8]  # First 8 PCs
 
 # The reduced_data can now be used for further analysis (e.g., clustering, modeling)
 
+## Models for categorized sale price
 ## Decision Tree
 # Load necessary libraries
 install.packages("rpart")
@@ -642,3 +643,145 @@ print(paste("Bagging Classifier Accuracy:", round(bagging_accuracy, 4)))
 # View a sample of the test data with predictions
 print("Sample of test data with predictions:")
 head(test_data)
+
+## Models for predict numeric sale price
+# Install necessary packages
+necessary_packages <- c("rpart", "rpart.plot", "dplyr", "caret", "class", "ggplot2", "e1071", "randomForest", "ipred")
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE)
+  }
+}
+lapply(necessary_packages, install_if_missing)
+
+# Load libraries
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(caret)
+library(class)
+library(ggplot2)
+library(e1071)
+library(randomForest)
+library(ipred)
+
+# Read the dataset
+property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Data preprocessing
+# Remove rows with missing or zero Sale_price
+property_sales_data <- property_sales_data %>% 
+  filter(!is.na(Sale_price) & Sale_price > 0)
+
+# Select relevant columns for the model
+model_data <- property_sales_data %>%
+  select(Sale_price, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
+
+# Remove rows with missing values in selected columns
+model_data <- na.omit(model_data)
+
+# Split data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
+
+# -------------------------------------------
+# Linear Regression
+# -------------------------------------------
+linear_model <- lm(Sale_price ~ ., data = train_data)
+linear_predictions <- predict(linear_model, test_data)
+linear_rmse <- sqrt(mean((linear_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# Decision Tree Regression
+# -------------------------------------------
+tree_model <- rpart(Sale_price ~ ., data = train_data, method = "anova")
+tree_predictions <- predict(tree_model, test_data)
+tree_rmse <- sqrt(mean((tree_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# Random Forest Regression
+# -------------------------------------------
+rf_model <- randomForest(Sale_price ~ ., data = train_data, ntree = 100)
+rf_predictions <- predict(rf_model, test_data)
+rf_rmse <- sqrt(mean((rf_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# KNN Regression
+# -------------------------------------------
+knn_model <- train(
+  Sale_price ~ ., 
+  data = train_data, 
+  method = "knn", 
+  tuneGrid = expand.grid(k = 1:10),
+  trControl = trainControl(method = "cv")
+)
+knn_predictions <- predict(knn_model, test_data)
+knn_rmse <- sqrt(mean((knn_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# SVM Regression
+# -------------------------------------------
+svm_model <- svm(Sale_price ~ ., data = train_data, kernel = "radial")
+svm_predictions <- predict(svm_model, test_data)
+svm_rmse <- sqrt(mean((svm_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# Bagging Regression
+# -------------------------------------------
+bagging_model <- bagging(
+  Sale_price ~ ., 
+  data = train_data, 
+  coob = TRUE  # Use out-of-bag error for validation
+)
+bagging_predictions <- predict(bagging_model, test_data)
+bagging_rmse <- sqrt(mean((bagging_predictions - test_data$Sale_price)^2))
+
+# -------------------------------------------
+# Model Comparison
+# -------------------------------------------
+model_results <- data.frame(
+  Model = c("Linear Regression", "Decision Tree", "Random Forest", "KNN", "SVM", "Bagging"),
+  RMSE = c(linear_rmse, tree_rmse, rf_rmse, knn_rmse, svm_rmse, bagging_rmse)
+)
+
+# Print model comparison
+print(model_results)
+
+# -------------------------------------------
+# Visualize the Results
+# -------------------------------------------
+
+# 1. RMSE Comparison Bar Plot
+ggplot(model_results, aes(x = Model, y = RMSE, fill = Model)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Model Comparison: RMSE for Sale_Price Prediction",
+    x = "Model",
+    y = "RMSE"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 16, face = "bold")
+  )
+
+# 2. Scatter Plot of Predicted vs Actual (for the best model, e.g., Random Forest)
+best_predictions <- rf_predictions  # Replace with predictions of the best model
+test_data$Predicted_Sale_Price <- best_predictions
+
+ggplot(test_data, aes(x = Sale_price, y = Predicted_Sale_Price)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, color = "red") +  # Ideal prediction line
+  labs(
+    title = "Best Model: Actual vs Predicted Sale_Price",
+    x = "Actual Sale Price",
+    y = "Predicted Sale Price"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )

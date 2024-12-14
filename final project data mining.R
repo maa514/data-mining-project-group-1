@@ -564,18 +564,17 @@ ggplot(new_data, aes(x = Fin_sqft, y = Lotsize, color = Predicted)) +
     legend.title = element_text(size = 12)
   )
 
-
 ## Bagging
-# Load necessary libraries
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("dplyr")
-install.packages("caret")
-install.packages("class")
-install.packages("ggplot2")
-install.packages("e1071")
-install.packages("ipred")
+# Install necessary packages
+necessary_packages <- c("rpart", "rpart.plot", "dplyr", "caret", "class", "ggplot2", "e1071", "ipred")
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE)
+  }
+}
+lapply(necessary_packages, install_if_missing)
 
+# Load libraries
 library(rpart)
 library(rpart.plot)
 library(dplyr)
@@ -593,7 +592,7 @@ property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
 property_sales_data <- property_sales_data %>% 
   filter(!is.na(Sale_price) & Sale_price > 0)
 
-# Create a categorical variable for Sale_price (e.g., Low, Medium, High)
+# Create a categorical variable for Sale_price (Low, Medium, High)
 quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
 property_sales_data$Price_Category <- cut(
   property_sales_data$Sale_price,
@@ -602,7 +601,6 @@ property_sales_data$Price_Category <- cut(
 )
 
 # Select relevant columns for the model
-# Removing non-predictive columns like Taxkey and Address
 model_data <- property_sales_data %>%
   select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
 
@@ -642,7 +640,50 @@ print(paste("Bagging Classifier Accuracy:", round(bagging_accuracy, 4)))
 
 # View a sample of the test data with predictions
 print("Sample of test data with predictions:")
-head(test_data)
+print(head(test_data))
+
+# -------------------------------------------
+# VISUALIZE THE RESULTS
+# -------------------------------------------
+
+# 1. Confusion Matrix Heatmap
+confusion_matrix_df <- as.data.frame(as.table(bagging_confusion_matrix))
+colnames(confusion_matrix_df) <- c("Actual", "Predicted", "Frequency")
+
+ggplot(confusion_matrix_df, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Frequency), color = "black", size = 5) +  # Add frequency labels
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    title = "Bagging Classifier Confusion Matrix",
+    x = "Actual Category",
+    y = "Predicted Category",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 12)
+  )
+
+# 2. Prediction Scatter Plot
+ggplot(test_data, aes(x = Fin_sqft, y = Lotsize, color = Predicted_Category)) +
+  geom_point(size = 3, alpha = 0.7) +
+  labs(
+    title = "Bagging Model Predictions",
+    x = "Finished Square Footage",
+    y = "Lot Size",
+    color = "Predicted Category"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 12)
+  )
+
 
 ## Models for predict numeric sale price
 # Install necessary packages

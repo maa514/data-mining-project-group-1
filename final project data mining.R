@@ -329,32 +329,30 @@ ggplot() +
 
 
 ## SVM Model
-# Load necessary libraries
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("dplyr")
-install.packages("caret")
-install.packages("class")
-install.packages("ggplot2")
-install.packages("e1071")
+# Install necessary packages (if not already installed)
+necessary_packages <- c("e1071", "caret", "ggplot2", "dplyr")
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE)
+  }
+}
+lapply(necessary_packages, install_if_missing)
 
-library(rpart)
-library(rpart.plot)
-library(dplyr)
-library(caret)
-library(class)
-library(ggplot2)
+# Load libraries
 library(e1071)
+library(caret)
+library(ggplot2)
+library(dplyr)
 
-# Read the dataset
+# Load dataset
 property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
 
-# Data preprocessing
+# Preprocess data
 # Remove rows with missing or zero Sale_price
-property_sales_data <- property_sales_data %>% 
+property_sales_data <- property_sales_data %>%
   filter(!is.na(Sale_price) & Sale_price > 0)
 
-# Create a categorical variable for Sale_price (e.g., Low, Medium, High)
+# Create a categorical variable for Sale_price (Low, Medium, High)
 quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
 property_sales_data$Price_Category <- cut(
   property_sales_data$Sale_price,
@@ -363,42 +361,31 @@ property_sales_data$Price_Category <- cut(
 )
 
 # Select relevant columns for the model
-# Removing non-predictive columns like Taxkey and Address
 model_data <- property_sales_data %>%
   select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
 
-# Remove rows with missing values in selected columns
+# Remove rows with missing values
 model_data <- na.omit(model_data)
 
-# Normalize numeric features
-preProc <- preProcess(model_data[, -1], method = c("center", "scale"))
-model_data_normalized <- cbind(
-  Price_Category = model_data$Price_Category,
-  predict(preProc, model_data[, -1])
-)
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
 
-# Split data into training and testing sets
-set.seed(123)  # For reproducibility
-train_index <- sample(1:nrow(model_data_normalized), 0.7 * nrow(model_data_normalized))
-train_data <- model_data_normalized[train_index, ]
-test_data <- model_data_normalized[-train_index, ]
-
-# Build and tune SVM model
+# SVM Hyperparameter Tuning
 svm_tune <- tune.svm(
   Price_Category ~ ., 
-  data = train_data, 
+  data = train_data,
   kernel = "radial",
-  cost = 2^(-1:2), 
-  gamma = 2^(-2:2),
-  scale = FALSE
+  cost = 10^(-1:2),      # Cost values: 0.1, 1, 10, 100
+  gamma = c(0.1, 0.5, 1) # Gamma values: 0.1, 0.5, 1
 )
 
-# Get the best parameters
+# Retrieve the best SVM model
 best_svm_model <- svm_tune$best.model
-print("Best SVM Parameters:")
-print(best_svm_model)
 
-# Evaluate the best SVM model
+# Evaluate the best SVM model on test data
 svm_predictions <- predict(best_svm_model, test_data)
 svm_confusion_matrix <- table(test_data$Price_Category, svm_predictions)
 
@@ -408,15 +395,16 @@ print(svm_confusion_matrix)
 svm_accuracy <- sum(diag(svm_confusion_matrix)) / sum(svm_confusion_matrix)
 print(paste("SVM Accuracy:", round(svm_accuracy, 4)))
 
-# Plot SVM performance
+# Visualizing tuning results
 accuracy_results <- data.frame(
   Cost = svm_tune$performances$cost,
   Gamma = svm_tune$performances$gamma,
   Accuracy = 1 - svm_tune$performances$error
 )
 
-ggplot(accuracy_results, aes(x = Cost, y = Gamma, fill = Accuracy)) +
-  geom_tile() +
+# Heatmap of tuning results
+ggplot(accuracy_results, aes(x = factor(Cost), y = factor(Gamma), fill = Accuracy)) +
+  geom_tile(color = "white") +
   scale_fill_gradient(low = "white", high = "blue") +
   labs(
     title = "SVM Accuracy by Cost and Gamma",
@@ -424,6 +412,21 @@ ggplot(accuracy_results, aes(x = Cost, y = Gamma, fill = Accuracy)) +
     y = "Gamma"
   ) +
   theme_minimal()
+
+# Confusion matrix heatmap
+confusion_matrix_df <- as.data.frame(as.table(svm_confusion_matrix))
+colnames(confusion_matrix_df) <- c("Actual", "Predicted", "Frequency")
+
+ggplot(confusion_matrix_df, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(
+    title = "SVM Confusion Matrix Heatmap",
+    x = "Actual Category",
+    y = "Predicted Category"
+  ) +
+  theme_minimal()
+
 
 ## Rule-based classifier
 # Load necessary libraries

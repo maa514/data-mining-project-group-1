@@ -212,14 +212,16 @@ print("Variable Importance:")
 print(decision_tree$variable.importance)
 
 ## KNN algorithm
-# Load necessary libraries
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("dplyr")
-install.packages("caret")
-install.packages("class")
-install.packages("ggplot2")
+# Install necessary packages
+necessary_packages <- c("rpart", "rpart.plot", "dplyr", "caret", "class", "ggplot2")
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE)
+  }
+}
+lapply(necessary_packages, install_if_missing)
 
+# Load libraries
 library(rpart)
 library(rpart.plot)
 library(dplyr)
@@ -244,77 +246,87 @@ property_sales_data$Price_Category <- cut(
 )
 
 # Select relevant columns for the model
-# Removing non-predictive columns like Taxkey and Address
 model_data <- property_sales_data %>%
   select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
 
-# Remove rows with missing values in selected columns
+# Remove rows with missing values
 model_data <- na.omit(model_data)
 
-# Normalize numeric features
-preProc <- preProcess(model_data[, -1], method = c("center", "scale"))
-model_data_normalized <- cbind(
-  Price_Category = model_data$Price_Category,
-  predict(preProc, model_data[, -1])
-)
-
 # Split data into training and testing sets
-set.seed(123)  # For reproducibility
-train_index <- sample(1:nrow(model_data_normalized), 0.7 * nrow(model_data_normalized))
-train_data <- model_data_normalized[train_index, ]
-test_data <- model_data_normalized[-train_index, ]
+set.seed(123)
+train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
 
-# Convert data to matrices for KNN
+# Prepare data for KNN
 train_labels <- train_data$Price_Category
 test_labels <- test_data$Price_Category
 train_features <- train_data[, -1]
 test_features <- test_data[, -1]
 
-# Find the optimal k for KNN
-accuracy_results <- data.frame(K = integer(), Accuracy = numeric())
-
-for (k in 1:20) {
-  knn_predictions <- knn(
-    train = train_features,
-    test = test_features,
-    cl = train_labels,
-    k = k
-  )
-  confusion_matrix <- table(test_labels, knn_predictions)
-  accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-  accuracy_results <- rbind(accuracy_results, data.frame(K = k, Accuracy = accuracy))
-}
-
-# Find the best k
-best_k <- accuracy_results[which.max(accuracy_results$Accuracy), ]
-print(paste("Best K:", best_k$K))
-print(paste("Best Accuracy:", round(best_k$Accuracy, 4)))
-
-# Plot accuracy vs. k
-ggplot(accuracy_results, aes(x = K, y = Accuracy)) +
-  geom_line(color = "blue") +
-  geom_point(color = "red") +
-  labs(
-    title = "KNN Accuracy vs. K",
-    x = "Number of Neighbors (K)",
-    y = "Accuracy"
-  ) +
-  theme_minimal()
-
-# Evaluate KNN with the best k
-knn_predictions_best <- knn(
+# Perform KNN with k = 5
+k <- 5
+knn_predictions <- knn(
   train = train_features,
   test = test_features,
   cl = train_labels,
-  k = best_k$K
+  k = k
 )
-best_confusion_matrix <- table(test_labels, knn_predictions_best)
 
-# Print confusion matrix and accuracy for the best k
-print("Best KNN Confusion Matrix:")
-print(best_confusion_matrix)
-best_accuracy <- sum(diag(best_confusion_matrix)) / sum(best_confusion_matrix)
-print(paste("Best KNN Accuracy:", round(best_accuracy, 4)))
+# Add predictions to the test data
+test_data$Predicted <- knn_predictions
+
+# Evaluate the KNN model
+confusion_matrix <- table(test_data$Price_Category, test_data$Predicted)
+knn_accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+
+# Print evaluation results
+print("KNN Confusion Matrix:")
+print(confusion_matrix)
+print(paste("KNN Accuracy:", round(knn_accuracy, 4)))
+
+# Visualize the results
+# 1. Bar plot of prediction distribution
+ggplot(test_data, aes(x = Predicted, fill = Predicted)) +
+  geom_bar() +
+  labs(title = "KNN Prediction Distribution", x = "Predicted Category", y = "Count") +
+  theme_minimal()
+
+# 2. Scatter plot of predictions
+ggplot(test_data, aes(x = Fin_sqft, y = Lotsize, color = Predicted)) +
+  geom_point(alpha = 0.7, size = 3) +
+  labs(title = "KNN Predicted Results", x = "Finished Square Footage", y = "Lot Size") +
+  theme_minimal()
+
+# 3. Classification boundaries (example with two features: Year_Built and Fin_sqft)
+# Create a grid of values for Year_Built and Fin_sqft
+grid <- expand.grid(
+  Year_Built = seq(min(test_data$Year_Built), max(test_data$Year_Built), length.out = 100),
+  Fin_sqft = seq(min(test_data$Fin_sqft), max(test_data$Fin_sqft), length.out = 100)
+)
+
+# Ensure grid_matrix aligns with train_features columns
+grid_matrix <- as.matrix(grid[, c("Year_Built", "Fin_sqft")])
+
+# Predict on the grid
+grid$Prediction <- knn(
+  train = train_features[, c("Year_Built", "Fin_sqft")],
+  test = grid_matrix,
+  cl = train_labels,
+  k = k
+)
+
+# Debugging output to validate Prediction
+print("Grid with Predictions:")
+print(head(grid))
+
+# Fix Plot: Separate the data sources for `grid` and `test_data`
+ggplot() +
+  geom_tile(data = grid, aes(x = Year_Built, y = Fin_sqft, fill = Prediction), alpha = 0.3) +
+  geom_point(data = test_data, aes(x = Year_Built, y = Fin_sqft, color = Predicted), size = 3) +
+  labs(title = "KNN Classification Boundaries", x = "Year Built", y = "Finished Square Footage") +
+  theme_minimal()
+
 
 ## SVM Model
 # Load necessary libraries

@@ -429,15 +429,16 @@ ggplot(confusion_matrix_df, aes(x = Actual, y = Predicted, fill = Frequency)) +
 
 
 ## Rule-based classifier
-# Load necessary libraries
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("dplyr")
-install.packages("caret")
-install.packages("class")
-install.packages("ggplot2")
-install.packages("e1071")
+# Install necessary packages
+necessary_packages <- c("rpart", "rpart.plot", "dplyr", "caret", "class", "ggplot2", "e1071")
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, dependencies = TRUE)
+  }
+}
+lapply(necessary_packages, install_if_missing)
 
+# Load libraries
 library(rpart)
 library(rpart.plot)
 library(dplyr)
@@ -446,15 +447,15 @@ library(class)
 library(ggplot2)
 library(e1071)
 
-# Read the dataset
+# Load the dataset
 property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
 
 # Data preprocessing
 # Remove rows with missing or zero Sale_price
-property_sales_data <- property_sales_data %>% 
+property_sales_data <- property_sales_data %>%
   filter(!is.na(Sale_price) & Sale_price > 0)
 
-# Create a categorical variable for Sale_price (e.g., Low, Medium, High)
+# Create a categorical variable for Sale_price (Low, Medium, High)
 quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
 property_sales_data$Price_Category <- cut(
   property_sales_data$Sale_price,
@@ -463,24 +464,24 @@ property_sales_data$Price_Category <- cut(
 )
 
 # Select relevant columns for the model
-# Removing non-predictive columns like Taxkey and Address
 model_data <- property_sales_data %>%
   select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
 
 # Remove rows with missing values in selected columns
 model_data <- na.omit(model_data)
 
-# Split data into training and testing sets
+# Split the data into training and testing sets
 set.seed(123)  # For reproducibility
 train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
 train_data <- model_data[train_index, ]
 test_data <- model_data[-train_index, ]
 
-# Build a rule-based classifier
+# Define the rule-based classifier
 rule_based_classifier <- function(row) {
-  if (row$Fin_sqft > 3000 & row$Lotsize > 5000) {
+  # Enhanced rules for better classification
+  if (row$Fin_sqft > 3000 & row$Lotsize > 8000 & row$Bdrms > 4) {
     return("High")
-  } else if (row$Fin_sqft > 1500 & row$Bdrms >= 3) {
+  } else if (row$Fin_sqft > 2000 & row$Lotsize > 5000 & row$Bdrms >= 3) {
     return("Medium")
   } else {
     return("Low")
@@ -498,6 +499,70 @@ print("Rule-Based Classifier Confusion Matrix:")
 print(confusion_matrix)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Rule-Based Classifier Accuracy:", round(accuracy, 4)))
+
+# Visualize the confusion matrix
+# Convert confusion matrix to a data frame for ggplot
+confusion_matrix_df <- as.data.frame(as.table(confusion_matrix))
+colnames(confusion_matrix_df) <- c("Actual", "Predicted", "Frequency")
+
+# Plot the confusion matrix heatmap with enhanced visualization
+ggplot(confusion_matrix_df, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Frequency), color = "black", size = 5) +  # Add labels to cells
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    title = "Rule-Based Classifier Confusion Matrix",
+    x = "Actual Category",
+    y = "Predicted Category",
+    fill = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 12)
+  )
+
+# -------------------------------------------
+# PREDICTION ON NEW DATA
+# -------------------------------------------
+# Example of unseen data (new observations)
+new_data <- data.frame(
+  Year_Built = c(2000, 1980, 2010),
+  Fin_sqft = c(3500, 1800, 2500),
+  Lotsize = c(9000, 4000, 6000),
+  Bdrms = c(5, 2, 3),
+  Fbath = c(3, 1, 2),
+  Hbath = c(1, 1, 1)
+)
+
+# Predict using the rule-based classifier
+new_data$Predicted <- apply(new_data, 1, function(row) rule_based_classifier(as.list(row)))
+
+# Print predictions
+print("Predictions for New Data:")
+print(new_data)
+
+# -------------------------------------------
+# VISUALIZE PREDICTION RESULTS
+# -------------------------------------------
+# Plot the prediction results for new data
+ggplot(new_data, aes(x = Fin_sqft, y = Lotsize, color = Predicted)) +
+  geom_point(size = 4, alpha = 0.7) +
+  labs(
+    title = "Predicted Results for New Data",
+    x = "Finished Square Footage",
+    y = "Lot Size",
+    color = "Predicted Category"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 12)
+  )
+
 
 ## Bagging
 # Load necessary libraries

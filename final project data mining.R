@@ -826,3 +826,120 @@ ggplot(test_data, aes(x = Sale_price, y = Predicted_Sale_Price)) +
     axis.text = element_text(size = 12),
     axis.title = element_text(size = 14)
   )
+#K-MEANS CLUSTERING
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+library(cluster)
+library(flexclust)
+
+# 1. Read and preprocess the data -------------------------
+property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Remove rows with missing or zero Sale_price
+property_sales_clean <- property_sales_data %>%
+    filter(!is.na(Sale_price) & Sale_price > 0)
+
+# Convert PropType to a numeric factor
+property_sales_clean$PropType_numeric <- as.numeric(as.factor(property_sales_clean$PropType))
+
+# Select Sale_price and PropType_numeric for clustering
+numeric_data <- property_sales_clean %>%
+    select(Sale_price, PropType_numeric)
+
+# 2. Perform K-means clustering ---------------------------
+set.seed(435)
+kmeans_result <- kmeans(numeric_data, centers = 4, nstart = 25)
+
+# Add cluster assignments to the cleaned data
+property_sales_clean$Cluster <- as.factor(kmeans_result$cluster)
+
+# 3. Scatter plot for Sale_price vs PropType --------------
+ggplot(property_sales_clean, aes(x = PropType_numeric, y = Sale_price, color = Cluster)) +
+    geom_point(alpha = 0.7, size = 3) +
+    scale_x_continuous(breaks = 1:length(unique(property_sales_clean$PropType)),
+                       labels = unique(property_sales_clean$PropType)) +
+    labs(title = "Clusters of Sale Price by Property Type",
+         x = "Property Type",
+         y = "Sale Price") +
+    theme_minimal()
+#DBSCAN
+install.packages('dbscan')
+# Load necessary libraries
+library(dplyr)
+library(dbscan)      # For density-based clustering
+library(ggplot2)     # For visualization
+
+# 1. Read and Preprocess the Data ------------------------------------
+property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Remove rows with missing or zero Sale_price
+property_sales_clean <- property_sales_data %>%
+    filter(!is.na(Sale_price) & Sale_price > 0)
+
+# Convert PropType to a numeric factor
+property_sales_clean$PropType_numeric <- as.numeric(as.factor(property_sales_clean$PropType))
+
+# Select Sale_price and PropType_numeric for DBSCAN
+dbscan_data <- property_sales_clean %>%
+    select(Sale_price, PropType_numeric) %>%
+    scale()  # Scale the data for better performance
+
+# 2. Apply DBSCAN ----------------------------------------------------
+# Set parameters for DBSCAN: eps (neighborhood radius) and minPts (minimum points)
+set.seed(123)  # Ensure reproducibility
+dbscan_result <- dbscan(dbscan_data, eps = 0.5, minPts = 5)
+
+# Add cluster labels back to the original data
+property_sales_clean$Cluster <- as.factor(dbscan_result$cluster)
+
+# 3. Visualize the Clusters ------------------------------------------
+ggplot(property_sales_clean, aes(x = PropType_numeric, y = Sale_price, color = Cluster)) +
+    geom_point(alpha = 0.7, size = 3) +
+    scale_x_continuous(breaks = 1:length(unique(property_sales_clean$PropType)),
+                       labels = unique(property_sales_clean$PropType)) +
+    labs(title = "DBSCAN Clustering: Sale Price by Property Type",
+         x = "Property Type",
+         y = "Sale Price") +
+    theme_minimal()
+
+#HIERARICHAL CLUSTERING
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# 1. Read and Preprocess the Data ------------------------------------
+property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Remove rows with missing values or zero Sale_price
+property_sales_clean <- property_sales_data %>%
+  filter(!is.na(Sale_price) & Sale_price > 0 & 
+           !is.na(Fin_sqft) & Fin_sqft > 0 & 
+           !is.na(Lotsize) & Lotsize > 0) %>%
+  select(Sale_price, Fin_sqft, Year_Built, Lotsize)  # Select meaningful features
+
+# Scale the data for clustering
+scaled_data <- scale(property_sales_clean)
+
+# 2. Perform Hierarchical Clustering ---------------------------------
+# Calculate the distance matrix
+distance_matrix <- dist(scaled_data, method = "euclidean")
+
+# Perform hierarchical clustering
+hc <- hclust(distance_matrix, method = "ward.D2")
+
+# 3. Plot the Dendrogram --------------------------------------------
+# Plot the dendrogram
+plot(hc, 
+     hang = -1, 
+     labels = FALSE, 
+     main = "Hierarchical Clustering of Property Sales Data",
+     xlab = "Properties", 
+     ylab = "Height")
+
+# 4. Assign Clusters to Data ----------------------------------------
+# Cut the tree into 4 clusters
+property_sales_clean$Cluster <- cutree(hc, k = 4)
+
+# Display cluster summary
+print(table(property_sales_clean$Cluster))

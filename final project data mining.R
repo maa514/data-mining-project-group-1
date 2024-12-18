@@ -875,8 +875,9 @@ ggplot(test_data, aes(x = Sale_price, y = Predicted_Sale_Price)) +
     axis.text = element_text(size = 12),
     axis.title = element_text(size = 14)
   )
+#--------------------------
 #K-MEANS CLUSTERING
-#K-MEANS CLUSTERING
+#--------------------------
 # Load necessary libraries
 library(ggplot2)
 library(dplyr)
@@ -926,7 +927,8 @@ print(cluster_summary)
 
 #-----------------------
 #DBSCAN CLUSTERING
-
+#-----------------------
+                            
 # Load required libraries
 library(dplyr)
 library(dbscan)
@@ -984,8 +986,10 @@ ggplot(data_clean, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
     axis.title = element_text(size = 14)
   )
 
+#----------------------
 #HIERARICHAL CLUSTERING
-
+#----------------------
+                            
 # Load necessary libraries
 library(dplyr)
 library(ggplot2)

@@ -1029,42 +1029,4 @@ ggplot(data_clean, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
   )
 
 #HIERARICHAL CLUSTERING
-# Load necessary libraries
-library(dplyr)
-library(ggplot2)
 
-# 1. Read and Preprocess the Data ------------------------------------
-property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
-
-# Remove rows with missing values or zero Sale_price
-property_sales_clean <- property_sales_data %>%
-  filter(!is.na(Sale_price) & Sale_price > 0 & 
-           !is.na(Fin_sqft) & Fin_sqft > 0 & 
-           !is.na(Lotsize) & Lotsize > 0) %>%
-  select(Sale_price, Fin_sqft, Year_Built, Lotsize)  
-                            
-# Scale the data for clustering
-scaled_data <- scale(property_sales_clean)
-
-# 2. Perform Hierarchical Clustering ---------------------------------
-# Calculate the distance matrix
-distance_matrix <- dist(scaled_data, method = "euclidean")
-
-# Perform hierarchical clustering
-hc <- hclust(distance_matrix, method = "ward.D2")
-
-# 3. Plot the Dendrogram --------------------------------------------
-# Plot the dendrogram
-plot(hc, 
-     hang = -1, 
-     labels = FALSE, 
-     main = "Hierarchical Clustering of Property Sales Data",
-     xlab = "Properties", 
-     ylab = "Height")
-
-# 4. Assign Clusters to Data ----------------------------------------
-# Cut the tree into 4 clusters
-property_sales_clean$Cluster <- cutree(hc, k = 4)
-
-# Display cluster summary
-print(table(property_sales_clean$Cluster))

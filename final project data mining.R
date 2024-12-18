@@ -130,79 +130,35 @@ reduced_data <- pca_result$x[, 1:8]  # First 8 PCs
 # The reduced_data can now be used for further analysis (e.g., clustering, modeling)
 
 ## Models for categorized sale price
+## Decision Tree
 # Load necessary libraries
-library(rpart)
 library(caret)
+library(rpart)
 library(rpart.plot)
-library(dplyr)
 
-# Load the dataset
-property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+# Train the decision tree with cross-validation
+control <- trainControl(method = "cv", number = 5)
 
-# Data Preprocessing: Remove rows with missing or zero Sale_price
-property_sales_data <- property_sales_data %>%
-  filter(!is.na(Sale_price) & Sale_price > 0)
-
-# Create a categorical variable for Sale_price (Low, Medium, High)
-quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
-property_sales_data$Price_Category <- cut(
-  property_sales_data$Sale_price,
-  breaks = c(-Inf, quantiles, Inf),
-  labels = c("Low", "Medium", "High")
-)
-
-# Select relevant columns for the model
-model_data <- property_sales_data %>%
-  select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
-
-# Remove rows with missing values
-model_data <- na.omit(model_data)
-
-# Split data into training and testing sets
-set.seed(123)  # For reproducibility
-train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
-train_data <- model_data[train_index, ]
-test_data <- model_data[-train_index, ]
-
-# Tuning hyperparameters using caret
-control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
-
-# Train decision tree model with hyperparameter tuning
-tree_model <- train(
+# Train the decision tree model
+dt_model <- train(
   Price_Category ~ ., 
   data = train_data,
   method = "rpart",
   trControl = control,
-  tuneLength = 10  # Tune over 10 values of cp and minsplit
+  tuneLength = 10  # Automatically tune parameters
 )
 
-# Print the best model's parameters
-print(tree_model$bestTune)
+# Print the best tuning parameters
+print(dt_model$bestTune)
 
-# Visualize the optimized decision tree
-rpart.plot(
-  tree_model$finalModel, 
-  type = 3, 
-  extra = 102, 
-  under = TRUE, 
-  fallen.leaves = TRUE,
-  tweak = 1.2,
-  main = "Optimized Decision Tree for Property Price Category"
-)
+# Visualize the decision tree
+rpart.plot(dt_model$finalModel, main = "Optimized Decision Tree", type = 3)
 
-# Evaluate the optimized model on the test data
-predicted <- predict(tree_model, test_data)
-confusion_matrix <- table(test_data$Price_Category, predicted)
+# Evaluate the model's performance
+dt_predictions <- predict(dt_model, test_data)
+confusion_matrix_dt <- confusionMatrix(dt_predictions, test_data$Price_Category)
+print(confusion_matrix_dt)
 
-# Print confusion matrix and accuracy
-print("Confusion Matrix:")
-print(confusion_matrix)
-accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-print(paste("Optimized Accuracy:", round(accuracy, 4)))
-
-# Print variable importance
-print("Variable Importance:")
-print(tree_model$finalModel$variable.importance)
 
 
 ## KNN algorithm

@@ -949,13 +949,13 @@ data_filtered$Cluster <- as.factor(kmeans_result$cluster)
 # Visualize the clusters
 ggplot(data_filtered, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
   geom_point(alpha = 0.7, size = 3) +
-  labs(title = "K-means Clustering of Properties",
+  labs(title = "K-means Clustering of Sale Price vs. Finished Square Feet",
        x = "Finished Square Feet",
        y = "Sale Price",
        color = "Cluster") +
  theme_minimal() +
   theme(
-    plot.title = element_text(size = 16, face = "bold"),
+    plot.title = element_text(size = 14, face = "bold"),
     axis.text = element_text(size = 12),
     axis.title = element_text(size = 14)
   )
@@ -998,7 +998,7 @@ data_features <- data_clean %>%
 data_scaled <- scale(data_features)
 
 # Run DBSCAN
-dbscan_result <- dbscan(data_scaled, eps = 0.5, minPts = 5) # Adjust eps and minPts as needed
+dbscan_result <- dbscan(data_scaled, eps = 0.5, minPts = 5)
 
 # Step 3: Add Clusters to Data
 data_clean$Cluster <- as.factor(dbscan_result$cluster)
@@ -1041,8 +1041,8 @@ property_sales_clean <- property_sales_data %>%
   filter(!is.na(Sale_price) & Sale_price > 0 & 
            !is.na(Fin_sqft) & Fin_sqft > 0 & 
            !is.na(Lotsize) & Lotsize > 0) %>%
-  select(Sale_price, Fin_sqft, Year_Built, Lotsize)  # Select meaningful features
-
+  select(Sale_price, Fin_sqft, Year_Built, Lotsize)  
+                            
 # Scale the data for clustering
 scaled_data <- scale(property_sales_clean)
 

@@ -206,6 +206,106 @@ print(tree_model$finalModel$variable.importance)
 
 
 ## KNN algorithm
+# Load necessary libraries
+library(caret)
+library(class)
+library(dplyr)
+library(ggplot2)
+
+# Load the dataset
+property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Data Preprocessing: Remove rows with missing or zero Sale_price
+property_sales_data <- property_sales_data %>%
+  filter(!is.na(Sale_price) & Sale_price > 0)
+
+# Create a categorical variable for Sale_price (Low, Medium, High)
+quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
+property_sales_data$Price_Category <- cut(
+  property_sales_data$Sale_price,
+  breaks = c(-Inf, quantiles, Inf),
+  labels = c("Low", "Medium", "High")
+)
+
+# Select relevant columns for the model
+model_data <- property_sales_data %>%
+  select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
+
+# Remove rows with missing values
+model_data <- na.omit(model_data)
+
+# Split data into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
+
+# Tuning the value of k using caret and cross-validation
+control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+
+# Train KNN model with cross-validation over different values of k
+knn_model <- train(
+  Price_Category ~ ., 
+  data = train_data,
+  method = "knn",
+  trControl = control,
+  tuneLength = 20  # Test 20 different values for k
+)
+
+# Print the best k and its results
+print(knn_model$bestTune)
+
+# Visualize the performance of KNN for each value of k
+ggplot(knn_model$results, aes(x = factor(k), y = Accuracy)) +
+  geom_bar(stat = "identity", fill = "skyblue", alpha = 0.7) +
+  labs(
+    title = "KNN Accuracy for Different k Values",
+    x = "Number of Neighbors (k)",
+    y = "Accuracy"
+  ) +
+  theme_minimal()
+
+# Evaluate the optimized KNN model on the test data
+knn_predictions <- predict(knn_model, test_data)
+
+# Add predictions to the test data for easier comparison
+test_data$Predicted_Price_Category <- knn_predictions
+
+# Show the actual vs predicted values
+print("Actual vs Predicted Values:")
+head(test_data[, c("Price_Category", "Predicted_Price_Category")])
+
+# Confusion Matrix for the test data
+confusion_matrix <- table(test_data$Price_Category, knn_predictions)
+
+# Print confusion matrix and accuracy
+print("Confusion Matrix:")
+print(confusion_matrix)
+knn_accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Optimized KNN Accuracy:", round(knn_accuracy, 4)))
+
+# Plot confusion matrix heatmap for better visualization
+confusion_matrix_df <- as.data.frame(as.table(confusion_matrix))
+colnames(confusion_matrix_df) <- c("Actual", "Predicted", "Frequency")
+
+ggplot(confusion_matrix_df, aes(x = Actual, y = Predicted, fill = Frequency)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Frequency), color = "black", size = 5) +  # Add labels to cells
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    title = "KNN Confusion Matrix Heatmap",
+    x = "Actual Category",
+    y = "Predicted Category",
+    fill = "Frequency"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels
+    axis.text = element_text(size = 12),
+    plot.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 12)
+  )
+
 # Install necessary packages
 necessary_packages <- c("rpart", "rpart.plot", "dplyr", "caret", "class", "ggplot2")
 install_if_missing <- function(p) {

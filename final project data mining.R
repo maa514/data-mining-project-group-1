@@ -986,3 +986,28 @@ ggplot(data_clean, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
 
 #HIERARICHAL CLUSTERING
 
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Step 1: Load and clean the data
+data <- read.csv("2002-2018-property-sales-data.csv")
+
+# Filter valid data and select relevant features
+data_clean <- data %>%
+  filter(Sale_price > 0 & Fin_sqft > 0 & !is.na(Year_Built)) %>%
+  select(PropType, Sale_price, Fin_sqft, Year_Built, Lotsize, Nr_of_rms)
+
+# Step 2: Scale the data
+data_scaled <- scale(data_clean[, c("Sale_price", "Fin_sqft", "Year_Built", "Lotsize", "Nr_of_rms")])
+
+# Step 3: Perform hierarchical clustering
+set.seed(123)
+hc <- hclust(dist(data_scaled), method = "average")
+
+# Step 4: Plot a subset of the data
+sample_idx <- sample(1:nrow(data_clean), 50) # Take a random sample of 50 points
+plot(hclust(dist(data_scaled[sample_idx, ]), method = "average"), 
+     labels = data_clean$PropType[sample_idx],
+     main = "Hierarchical Clustering (Sampled Data)",
+     xlab = "Property Type", ylab = "Height", hang = -1, cex = 0.7)

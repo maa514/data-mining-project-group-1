@@ -968,45 +968,65 @@ cluster_summary <- data_filtered %>%
 
 print(cluster_summary)
 
-#DBSCAN
-install.packages('dbscan')
-# Load necessary libraries
+#-----------------------
+#DBSCAN CLUSTERING
+
+# Load required libraries
 library(dplyr)
-library(dbscan)      # For density-based clustering
-library(ggplot2)     # For visualization
+library(dbscan)
+library(ggplot2)
 
-# 1. Read and Preprocess the Data ------------------------------------
-property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+# Read the dataset
+data <- read.csv("2002-2018-property-sales-data.csv")
 
-# Remove rows with missing or zero Sale_price
-property_sales_clean <- property_sales_data %>%
-    filter(!is.na(Sale_price) & Sale_price > 0)
+# Step 1: Data Preparation
+data_clean <- data %>%
+  filter(!is.na(Sale_price) & Sale_price > 0,       # Valid Sale Price
+         !is.na(Fin_sqft) & Fin_sqft > 0) %>%       # Valid Finished Square Feet
+  filter(PropType %in% c("Commercial", "Condominium", "Lg Apartment", 
+                         "Vacant Land", "Residential")) %>%  # Relevant property types
+  select(PropType, Sale_price, Fin_sqft)
 
-# Convert PropType to a numeric factor
-property_sales_clean$PropType_numeric <- as.numeric(as.factor(property_sales_clean$PropType))
+# Step 2: Perform DBSCAN
+set.seed(123) # For reproducibility
 
-# Select Sale_price and PropType_numeric for DBSCAN
-dbscan_data <- property_sales_clean %>%
-    select(Sale_price, PropType_numeric) %>%
-    scale()  # Scale the data for better performance
+# Select the features for clustering
+data_features <- data_clean %>%
+  select(Fin_sqft, Sale_price)
 
-# 2. Apply DBSCAN ----------------------------------------------------
-# Set parameters for DBSCAN: eps (neighborhood radius) and minPts (minimum points)
-set.seed(123)  # Ensure reproducibility
-dbscan_result <- dbscan(dbscan_data, eps = 0.5, minPts = 5)
+# Scale the data for DBSCAN
+data_scaled <- scale(data_features)
 
-# Add cluster labels back to the original data
-property_sales_clean$Cluster <- as.factor(dbscan_result$cluster)
+# Run DBSCAN
+dbscan_result <- dbscan(data_scaled, eps = 0.5, minPts = 5) # Adjust eps and minPts as needed
 
-# 3. Visualize the Clusters ------------------------------------------
-ggplot(property_sales_clean, aes(x = PropType_numeric, y = Sale_price, color = Cluster)) +
-    geom_point(alpha = 0.7, size = 3) +
-    scale_x_continuous(breaks = 1:length(unique(property_sales_clean$PropType)),
-                       labels = unique(property_sales_clean$PropType)) +
-    labs(title = "DBSCAN Clustering: Sale Price by Property Type",
-         x = "Property Type",
-         y = "Sale Price") +
-    theme_minimal()
+# Step 3: Add Clusters to Data
+data_clean$Cluster <- as.factor(dbscan_result$cluster)
+
+# Step 4: Cluster Analysis
+cluster_summary <- data_clean %>%
+  group_by(Cluster, PropType) %>%
+  summarize(
+    Avg_Sale_Price = mean(Sale_price),
+    Avg_Fin_Sqft = mean(Fin_sqft),
+    Count = n(),
+    .groups = "drop"
+  )
+print(cluster_summary)
+
+# Step 5: Visualization
+ggplot(data_clean, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
+  geom_point(alpha = 0.7, size = 3) +
+  labs(title = "DBSCAN Clustering of Sale Price vs Finished Square Feet",
+       x = "Finished Square Feet",
+       y = "Sale Price",
+       color = "Cluster") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )
 
 #HIERARICHAL CLUSTERING
 # Load necessary libraries

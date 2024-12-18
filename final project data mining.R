@@ -920,42 +920,54 @@ ggplot(test_data, aes(x = Sale_price, y = Predicted_Sale_Price)) +
     axis.title = element_text(size = 14)
   )
 #K-MEANS CLUSTERING
+#K-MEANS CLUSTERING
 # Load necessary libraries
-library(dplyr)
 library(ggplot2)
-library(cluster)
-library(flexclust)
+library(dplyr)
 
-# 1. Read and preprocess the data -------------------------
-property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
+# Read the dataset (adjust path as needed)
+data <- read.csv("2002-2018-property-sales-data.csv")
 
-# Remove rows with missing or zero Sale_price
-property_sales_clean <- property_sales_data %>%
-    filter(!is.na(Sale_price) & Sale_price > 0)
+# Filter necessary columns
+data_filtered <- data %>%
+  filter(PropType %in% c("Commercial", "Condominium", "Lg Apartment", 
+                         "Vacant Land", "Residential")) %>%
+  select(PropType, Sale_price, Fin_sqft) %>%
+  filter(Sale_price > 0 & Fin_sqft > 0)
 
-# Convert PropType to a numeric factor
-property_sales_clean$PropType_numeric <- as.numeric(as.factor(property_sales_clean$PropType))
+# Scale the Sale_price and Fin_sqft for K-means
+data_scaled <- scale(data_filtered[, c("Sale_price", "Fin_sqft")])
 
-# Select Sale_price and PropType_numeric for clustering
-numeric_data <- property_sales_clean %>%
-    select(Sale_price, PropType_numeric)
+# Perform K-means clustering
+set.seed(123) # For reproducibility
+k <- 5 # Number of clusters representing the 5 property types
+kmeans_result <- kmeans(data_scaled, centers = k)
 
-# 2. Perform K-means clustering ---------------------------
-set.seed(435)
-kmeans_result <- kmeans(numeric_data, centers = 4, nstart = 25)
+# Add cluster results back to the original data
+data_filtered$Cluster <- as.factor(kmeans_result$cluster)
 
-# Add cluster assignments to the cleaned data
-property_sales_clean$Cluster <- as.factor(kmeans_result$cluster)
+# Visualize the clusters
+ggplot(data_filtered, aes(x = Fin_sqft, y = Sale_price, color = Cluster)) +
+  geom_point(alpha = 0.7, size = 3) +
+  labs(title = "K-means Clustering of Properties",
+       x = "Finished Square Feet",
+       y = "Sale Price",
+       color = "Cluster") +
+ theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )
 
-# 3. Scatter plot for Sale_price vs PropType --------------
-ggplot(property_sales_clean, aes(x = PropType_numeric, y = Sale_price, color = Cluster)) +
-    geom_point(alpha = 0.7, size = 3) +
-    scale_x_continuous(breaks = 1:length(unique(property_sales_clean$PropType)),
-                       labels = unique(property_sales_clean$PropType)) +
-    labs(title = "Clusters of Sale Price by Property Type",
-         x = "Property Type",
-         y = "Sale Price") +
-    theme_minimal()
+# Cluster mapping to property types
+cluster_summary <- data_filtered %>%
+  group_by(Cluster) %>%
+  summarize(Average_Sale_Price = mean(Sale_price),
+            Average_Fin_sqft = mean(Fin_sqft))
+
+print(cluster_summary)
+
 #DBSCAN
 install.packages('dbscan')
 # Load necessary libraries

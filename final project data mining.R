@@ -130,27 +130,20 @@ reduced_data <- pca_result$x[, 1:8]  # First 8 PCs
 # The reduced_data can now be used for further analysis (e.g., clustering, modeling)
 
 ## Models for categorized sale price
-## Decision Tree
 # Load necessary libraries
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("dplyr")
-install.packages("caret")
-
 library(rpart)
+library(caret)
 library(rpart.plot)
 library(dplyr)
-library(caret)
 
-# Read the dataset
+# Load the dataset
 property_sales_data <- read.csv("2002-2018-property-sales-data.csv")
 
-# Data preprocessing
-# Remove rows with missing or zero Sale_price
-property_sales_data <- property_sales_data %>% 
+# Data Preprocessing: Remove rows with missing or zero Sale_price
+property_sales_data <- property_sales_data %>%
   filter(!is.na(Sale_price) & Sale_price > 0)
 
-# Create a categorical variable for Sale_price (e.g., Low, Medium, High)
+# Create a categorical variable for Sale_price (Low, Medium, High)
 quantiles <- quantile(property_sales_data$Sale_price, probs = c(0.33, 0.66))
 property_sales_data$Price_Category <- cut(
   property_sales_data$Sale_price,
@@ -159,58 +152,58 @@ property_sales_data$Price_Category <- cut(
 )
 
 # Select relevant columns for the model
-# Removing non-predictive columns like Taxkey and Address
 model_data <- property_sales_data %>%
   select(Price_Category, Year_Built, Fin_sqft, Lotsize, Bdrms, Fbath, Hbath)
 
-# Remove rows with missing values in selected columns
+# Remove rows with missing values
 model_data <- na.omit(model_data)
-
-# Normalize numeric features
-preProc <- preProcess(model_data[, -1], method = c("center", "scale"))
-model_data_normalized <- cbind(
-  Price_Category = model_data$Price_Category,
-  predict(preProc, model_data[, -1])
-)
 
 # Split data into training and testing sets
 set.seed(123)  # For reproducibility
-train_index <- sample(1:nrow(model_data_normalized), 0.7 * nrow(model_data_normalized))
-train_data <- model_data_normalized[train_index, ]
-test_data <- model_data_normalized[-train_index, ]
+train_index <- sample(1:nrow(model_data), 0.7 * nrow(model_data))
+train_data <- model_data[train_index, ]
+test_data <- model_data[-train_index, ]
 
-# Build the decision tree
-decision_tree <- rpart(
+# Tuning hyperparameters using caret
+control <- trainControl(method = "cv", number = 10)  # 10-fold cross-validation
+
+# Train decision tree model with hyperparameter tuning
+tree_model <- train(
   Price_Category ~ ., 
-  data = train_data, 
-  method = "class",
-  control = rpart.control(cp = 0.01, minsplit = 20)
+  data = train_data,
+  method = "rpart",
+  trControl = control,
+  tuneLength = 10  # Tune over 10 values of cp and minsplit
 )
 
-# Visualize the decision tree
+# Print the best model's parameters
+print(tree_model$bestTune)
+
+# Visualize the optimized decision tree
 rpart.plot(
-  decision_tree, 
+  tree_model$finalModel, 
   type = 3, 
   extra = 102, 
   under = TRUE, 
   fallen.leaves = TRUE,
   tweak = 1.2,
-  main = "Decision Tree for Property Price Category"
+  main = "Optimized Decision Tree for Property Price Category"
 )
 
-# Evaluate the model on the test data
-predicted <- predict(decision_tree, test_data, type = "class")
+# Evaluate the optimized model on the test data
+predicted <- predict(tree_model, test_data)
 confusion_matrix <- table(test_data$Price_Category, predicted)
 
 # Print confusion matrix and accuracy
 print("Confusion Matrix:")
 print(confusion_matrix)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-print(paste("Accuracy:", round(accuracy, 4)))
+print(paste("Optimized Accuracy:", round(accuracy, 4)))
 
 # Print variable importance
 print("Variable Importance:")
-print(decision_tree$variable.importance)
+print(tree_model$finalModel$variable.importance)
+
 
 ## KNN algorithm
 # Install necessary packages
